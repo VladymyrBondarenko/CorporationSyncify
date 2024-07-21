@@ -2,7 +2,7 @@
 {
     public sealed record IdentityCreatedEvent(
         string UserName,
-        string Email)
+        string Email) : IIdentityEvent
     {
     }
 }

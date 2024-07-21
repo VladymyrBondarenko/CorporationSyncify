@@ -1,8 +1,10 @@
 using CorporationSyncify.Identity.WebApi.Configurations;
 using CorporationSyncify.Identity.WebApi.Data;
+using CorporationSyncify.Identity.WebApi.Extensions;
 using CorporationSyncify.Identity.WebApi.Helpers;
 using CorporationSyncify.Identity.WebApi.Installers;
 using CorporationSyncify.Identity.WebApi.Services;
+using Hangfire;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,6 +19,8 @@ builder.Services.AddIdentityServerAuthentication(builder.Configuration);
 
 var assembly = typeof(Program).Assembly.GetName().Name;
 var identityDbConnection = builder.Configuration.GetConnectionString("IdentityDbConnection");
+
+builder.Services.AddScoped<IDbConnectionFactory, DbConnectionFactory>();
 
 builder.Services.AddDbContext<CorporationSyncifyIdentityDbContext>(options =>
 {
@@ -55,6 +59,8 @@ builder.Services
 
 builder.Services.AddScoped<IIdentityService, IdentityService>();
 
+builder.Services.AddBackgroundJobs(builder.Configuration);
+
 var app = builder.Build();
 
 app.UseStaticFiles();
@@ -74,7 +80,15 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 
     app.PrepareDataPopulation();
+
+    app.UseHangfireDashboard(options: new DashboardOptions
+    {
+        Authorization = [],
+        DarkModeEnabled = false
+    });
 }
+
+app.UseBackgroundJob();
 
 app.UseHttpsRedirection();
 
