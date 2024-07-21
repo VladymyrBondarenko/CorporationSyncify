@@ -1,0 +1,105 @@
+version: '3.4'
+
+networks:
+ corp-syncify-network:
+  driver: bridge
+
+volumes:
+  identity-service-sqlserver:
+
+services:
+  
+  identity-service-api:
+    container_name: 'identity-service-api'
+    image: ${DOCKER_REGISTRY-}identity-service-api
+    build:
+      context: .
+      dockerfile: CorporationSyncify.Identity.WebApi/Dockerfile
+    profiles: [web]
+    ports:
+     - "57397:8081"
+     - "57398:8080"
+    depends_on:
+      identity-service-mssql:
+       condition: service_healthy
+    environment:
+     ConnectionStrings__IdentityDbConnection: "Server=identity-service-mssql,1433;Database=IdentityServiceDb;User Id=sa;Password=c434b940-682f-4547-afd0-cc7c9ecb5f6e;TrustServerCertificate=true;Integrated Security=True;Trusted_Connection = false"
+
+     IdentityServerOptions__IdentityServerScopes__0__Name: "HRS-API.read_only"
+     IdentityServerOptions__IdentityServerScopes__1__Name: "IdentityServerApi"
+
+     IdentityServerOptions__IdentityServerResources__0__Name: "HRS-API"
+     IdentityServerOptions__IdentityServerResources__0__Scopes__0: "HRS-API.read_only"
+     IdentityServerOptions__IdentityServerResources__0__ApiSecrets__0: "8f847696-3e2b-4fc3-98ca-e04cd2d43e53"
+     IdentityServerOptions__IdentityServerResources__0__UserClaims__0: "role"
+
+     IdentityServerOptions__IdentityServerResources__1__Name: "IdentityServerApi"
+     IdentityServerOptions__IdentityServerResources__1__Scopes__0: "IdentityServerApi"
+     IdentityServerOptions__IdentityServerResources__1__ApiSecrets__0: "c81877f8-f189-459d-8bca-6ab907baf665"
+     IdentityServerOptions__IdentityServerResources__1__UserClaims__0: "role"
+
+     IdentityServerOptions__IdentityServerClients__1__ClientId: "1a548be8-a0b2-44c7-85a5-2aaca192e027"
+     IdentityServerOptions__IdentityServerClients__1__ClientName: "CorporationSyncify Authorization"
+     IdentityServerOptions__IdentityServerClients__1__AllowedGrantTypes__0: "authorization_code"
+     IdentityServerOptions__IdentityServerClients__1__ClientSecrets__0: "79cc84f0-637f-459b-a52f-f2009c90d881"
+     IdentityServerOptions__IdentityServerClients__1__AllowedScopes__0: "IdentityServerApi"
+     IdentityServerOptions__IdentityServerClients__1__AllowedScopes__1: "HRS-API.read_only"
+     IdentityServerOptions__IdentityServerClients__1__RedirectUris__0: "https://localhost:5444/signin-oidc"
+     IdentityServerOptions__IdentityServerClients__1__FrontChannelLogoutUri: "https://localhost:5444/signout-oidc"
+     IdentityServerOptions__IdentityServerClients__1__PostLogoutRedirectUris__0: "https://localhost:5444/signout-callback-oidc"
+     IdentityServerOptions__IdentityServerClients__1__AllowOfflineAccess: "true"
+     IdentityServerOptions__IdentityServerClients__1__RequirePkce: "true"
+     IdentityServerOptions__IdentityServerClients__1__RequireConsent: "true"
+     IdentityServerOptions__IdentityServerClients__1__AllowPlainTextPkce: "false"
+
+     IdentityServerOptions__IdentityServerAdmin__UserName: "admin"
+     IdentityServerOptions__IdentityServerAdmin__Password: "123456Password."
+     IdentityServerOptions__IdentityServerAdmin__Email: "admin@mail.com"
+
+     AuthenticationOptions__Authority: "http://identity-service-api:8080"
+     AuthenticationOptions__IsSslRequired: "false"
+     AuthenticationOptions__VerifyTokenAudience: "true"
+     AuthenticationOptions__ValidateIssuer: "true"
+     AuthenticationOptions__ApiName: "IdentityServerApi"
+     AuthenticationOptions__ValidIssuers__0: "http://identity-service-api:8080"
+     AuthenticationOptions__ValidIssuers__1: "https://localhost:57397" # this is for when generating token via postman
+
+    networks:
+     - corp-syncify-network
+
+  identity-service-mssql:
+    container_name: 'identity-service-mssql'
+    image: 'mcr.microsoft.com/mssql/server:2022-latest'
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: c434b940-682f-4547-afd0-cc7c9ecb5f6e
+    healthcheck:
+     test: "exit 0"
+    ports:
+      - "1433:1433"
+    volumes:
+    - identity-service-sqlserver:/var/lib/mssql/data
+    networks:
+     - corp-syncify-network
+
+  hr-service-api:
+    container_name: 'hr-service-api'
+    image: ${DOCKER_REGISTRY-}hr-service-api
+    build:
+      context: .
+      dockerfile: CorporationSyncify.HRS.WebApi/Dockerfile
+    profiles: [web]
+    ports:
+     - "57401:8081"
+     - "57402:8080"
+    environment:
+     AuthenticationOptions__Authority: "http://identity-service-api:8080"
+     AuthenticationOptions__TokenClockSkew: "0"
+     AuthenticationOptions__IsSslRequired: "false"
+     AuthenticationOptions__VerifyTokenAudience: "true"
+     AuthenticationOptions__ValidateIssuer: "true"
+     AuthenticationOptions__ApiName: "HRS-API"
+     AuthenticationOptions__ValidIssuers__0: "http://identity-service-api:8080"
+     AuthenticationOptions__ValidIssuers__1: "https://localhost:57397" # this is for when generating token via postman
+    networks:
+     - corp-syncify-network

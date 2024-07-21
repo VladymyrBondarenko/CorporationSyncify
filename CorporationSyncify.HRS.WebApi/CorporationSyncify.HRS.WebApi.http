@@ -1,0 +1,6 @@
+@CorporationSyncify.HRS.WebApi_HostAddress = http://localhost:5192
+
+GET {{CorporationSyncify.HRS.WebApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
