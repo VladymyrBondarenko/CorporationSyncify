@@ -1,4 +1,4 @@
-﻿using CorporationSyncify.Identity.WebApi.Services;
+﻿using CorporationSyncify.Identity.WebApi.Services.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;

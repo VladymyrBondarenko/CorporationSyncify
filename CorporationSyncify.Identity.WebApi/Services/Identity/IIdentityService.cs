@@ -1,5 +1,4 @@
-﻿
-namespace CorporationSyncify.Identity.WebApi.Services
+﻿namespace CorporationSyncify.Identity.WebApi.Services.Identity
 {
     public interface IIdentityService
     {

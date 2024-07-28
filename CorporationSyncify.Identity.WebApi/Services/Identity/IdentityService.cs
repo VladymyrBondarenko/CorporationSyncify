@@ -4,7 +4,7 @@ using CorporationSyncify.Identity.WebApi.Outbox;
 using Microsoft.AspNetCore.Identity;
 using Newtonsoft.Json;
 
-namespace CorporationSyncify.Identity.WebApi.Services
+namespace CorporationSyncify.Identity.WebApi.Services.Identity
 {
     public class IdentityService : IIdentityService
     {

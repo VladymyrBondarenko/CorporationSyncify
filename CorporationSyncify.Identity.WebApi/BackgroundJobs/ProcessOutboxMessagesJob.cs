@@ -4,85 +4,118 @@ using CorporationSyncify.Identity.WebApi.Outbox;
 using Dapper;
 using MediatR;
 using Newtonsoft.Json;
+using Polly;
 using System.Data;
 
 namespace CorporationSyncify.Identity.WebApi.BackgroundJobs
 {
-    public class ProcessOutboxMessagesJob : IProcessOutboxMessagesJob
+    public class ProcessOutboxMessagesJob : BackgroundService
     {
         private static readonly JsonSerializerSettings _jsonSerializerSettings = new JsonSerializerSettings
         {
             TypeNameHandling = TypeNameHandling.All
         };
-        private readonly BackgroundJobsOptions _backgroundJobsOptions;
-        private readonly IDbConnectionFactory _dbConnectionFactory;
-        private readonly ILogger<ProcessOutboxMessagesJob> _logger;
-        private readonly IPublisher _publisher;
+        private readonly IServiceProvider _serviceProvider;
 
         public ProcessOutboxMessagesJob(
-            BackgroundJobsOptions backgroundJobsOptions,
-            IDbConnectionFactory dbConnectionFactory,
-            ILogger<ProcessOutboxMessagesJob> logger,
-            IPublisher publisher)
+            IServiceProvider serviceProvider)
         {
-            _backgroundJobsOptions = backgroundJobsOptions;
-            _dbConnectionFactory = dbConnectionFactory;
-            _logger = logger;
-            _publisher = publisher;
+            _serviceProvider = serviceProvider;
         }
 
-        public async Task ProcessAsync()
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("Beginning to process outbox messages");
-
-            using IDbConnection connection = await _dbConnectionFactory.GetOpenConnection();
-            using IDbTransaction transaction = connection.BeginTransaction();
-
-            var outboxMessages = await GetOutboxMessagesAsync(connection, transaction);
-
-            if (outboxMessages.Count == 0)
+            while (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogInformation("Completed processing outbox messages - no messages to process");
-                return;
-            }
+                await using var scope = _serviceProvider.CreateAsyncScope();
 
-            foreach (var outboxMessage in outboxMessages)
-            {
-                Exception? exception = null;
+                var logger = scope.ServiceProvider.GetRequiredService<ILogger<ProcessOutboxMessagesJob>>();
+                var dbConnectionFactory = scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
+                var outboxProcessorOptions = scope.ServiceProvider.GetRequiredService<BackgroundJobOptions>()?.Outbox;
+                var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
 
-                try
+                logger.LogInformation("Beginning to process outbox messages");
+
+                using IDbConnection connection = await dbConnectionFactory.GetOpenConnection();
+                using IDbTransaction transaction = connection.BeginTransaction();
+
+                var outboxMessages = await GetOutboxMessagesAsync(
+                    connection, 
+                    transaction, 
+                    outboxProcessorOptions);
+
+                if (outboxMessages.Count > 0)
                 {
-                    var domainEvent = JsonConvert.DeserializeObject<IIdentityEvent>(
-                        outboxMessage.Content,
-                        _jsonSerializerSettings)!;
+                    foreach (var outboxMessage in outboxMessages)
+                    {
+                        Exception? exception = null;
 
-                    await _publisher.Publish(domainEvent);
+                        try
+                        {
+                            var resiliencePipeline = new ResiliencePipelineBuilder()
+                                .AddRetry(new Polly.Retry.RetryStrategyOptions
+                                {
+                                    MaxRetryAttempts = outboxProcessorOptions?.RetryPolicyOptions?.MaxRetryAttempts ?? 5,
+                                    BackoffType = DelayBackoffType.Constant,
+                                    Delay = TimeSpan.FromSeconds(outboxProcessorOptions?.RetryPolicyOptions?.DelaySeconds ?? 5),
+                                    ShouldHandle = new PredicateBuilder().Handle<Exception>(), // TODO: set relevant exceptions handling
+                                    OnRetry = args =>
+                                    {
+                                        logger.LogError(
+                                            args.Outcome.Exception,
+                                            "Exception while processing message {MessageId}. Attempt number: {AttemptNumber}",
+                                            outboxMessage.Id,
+                                            args.AttemptNumber);
+
+                                        return ValueTask.CompletedTask;
+                                    }
+                                }).Build();
+
+                            await resiliencePipeline.ExecuteAsync(async cts =>
+                            {
+                                var domainEvent = JsonConvert.DeserializeObject<IIdentityEvent>(
+                                    outboxMessage.Content,
+                                    _jsonSerializerSettings)!;
+
+                                await publisher.Publish(domainEvent, stoppingToken);
+                            }, stoppingToken);
+                        }
+                        catch (Exception caughtException)
+                        {
+                            logger.LogError(
+                                caughtException,
+                                "Exception while processing message {MessageId}. Message exceed the maximum number of retry attempts",
+                                outboxMessage.Id);
+
+                            exception = caughtException;
+                        }
+
+                        await UpdateOutboxMessageAsync(
+                            connection,
+                            transaction,
+                            outboxMessage,
+                            exception);
+                    }
+
+                    transaction.Commit();
+
+                    logger.LogInformation("Completed processing outbox messages");
                 }
-                catch (Exception caughtException)
+                else
                 {
-                    _logger.LogError(
-                        caughtException,
-                        "Exception while processing message {MessageId}",
-                        outboxMessage.Id);
-
-                    exception = caughtException;
+                    logger.LogInformation("Completed processing outbox messages - no messages to process");
                 }
 
-                await UpdateOutboxMessageAsync(
-                    connection,
-                    transaction,
-                    outboxMessage,
-                    exception);
+                await Task.Delay(
+                    TimeSpan.FromSeconds(outboxProcessorOptions?.JobDelaySeconds ?? 60),
+                    stoppingToken);
             }
-
-            transaction.Commit();
-
-            _logger.LogInformation("Completed processing outbox messages");
         }
 
         private async Task<IReadOnlyList<OutboxMessage>> GetOutboxMessagesAsync(
             IDbConnection connection,
-            IDbTransaction transaction)
+            IDbTransaction transaction,
+            OutboxOptions? outboxProcessorOptions)
         {
             var query = """
                 SELECT TOP (@BatchSize) "Id", "Content"
@@ -93,7 +126,7 @@ namespace CorporationSyncify.Identity.WebApi.BackgroundJobs
 
             var outboxMessages = await connection.QueryAsync<OutboxMessage>(
                 query,
-                new { BatchSize = _backgroundJobsOptions?.Outbox?.BatchSize ?? 15 },
+                new { BatchSize = outboxProcessorOptions?.BatchSize ?? 15 },
                 transaction
             );
 

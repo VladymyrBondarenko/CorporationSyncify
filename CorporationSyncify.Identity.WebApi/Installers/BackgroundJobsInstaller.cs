@@ -1,9 +1,8 @@
 ﻿using CorporationSyncify.Identity.WebApi.BackgroundJobs;
-using Hangfire;
 
 namespace CorporationSyncify.Identity.WebApi.Installers
 {
-    public static class BackgroundJobsInstaller
+    public static class BackgroundJobInstaller
     {
         public static void AddBackgroundJobs(
             this IServiceCollection services,
@@ -13,17 +12,11 @@ namespace CorporationSyncify.Identity.WebApi.Installers
             {
                 cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
             });
-
-            services.AddHangfire(config => 
-                config.UseSqlServerStorage(configuration.GetConnectionString("IdentityDbConnection")));
-            services.AddHangfireServer(options => 
-                options.SchedulePollingInterval = TimeSpan.FromSeconds(1));
-
-            services.AddScoped<IProcessOutboxMessagesJob, ProcessOutboxMessagesJob>();
+            services.AddHostedService<ProcessOutboxMessagesJob>();
 
             var backgroundJobsOptions = configuration
-                .GetSection(nameof(BackgroundJobsOptions))
-                .Get<BackgroundJobsOptions>()!;
+                .GetSection(nameof(BackgroundJobOptions))
+                .Get<BackgroundJobOptions>()!;
             services.AddSingleton(backgroundJobsOptions);
         }
     }

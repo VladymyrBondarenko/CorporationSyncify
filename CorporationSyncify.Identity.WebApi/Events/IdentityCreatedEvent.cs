@@ -4,5 +4,9 @@
         string UserName,
         string Email) : IIdentityEvent
     {
+        public string EventName 
+        { 
+            get { return nameof(IdentityCreatedEvent); } 
+        }
     }
 }
