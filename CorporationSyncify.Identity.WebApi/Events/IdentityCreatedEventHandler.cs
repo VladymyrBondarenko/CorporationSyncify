@@ -25,7 +25,7 @@ namespace CorporationSyncify.Identity.WebApi.Events
                 request.UserName, 
                 request.Email);
 
-            await _kafkaProducerService.SendEventAsync(request, cancellationToken);
+            await _kafkaProducerService.SendMessageAsync(request, cancellationToken);
         }
     }
 }

@@ -4,6 +4,6 @@ namespace CorporationSyncify.Identity.WebApi.Services.Kafka
 {
     public interface IKafkaProducerService
     {
-        Task SendEventAsync(IIdentityEvent identityEvent, CancellationToken cancellationToken);
+        Task SendMessageAsync(IIdentityEvent identityEvent, CancellationToken cancellationToken);
     }
 }

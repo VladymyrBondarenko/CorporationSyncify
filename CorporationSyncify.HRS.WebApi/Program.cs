@@ -1,4 +1,5 @@
 using CorporationSyncify.HRS.WebApi.Authentification;
+using CorporationSyncify.HRS.WebApi.Helpers;
 using CorporationSyncify.HRS.WebApi.Installers;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +9,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwagger();
 
 builder.Services.AddIdentityServerAuthentication(builder.Configuration);
+builder.Services
+    .AddDomain()
+    .AddInfrastructure(builder.Configuration);
 
 var app = builder.Build();
 
@@ -16,6 +20,7 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.PrepareDataPopulation();
 }
 
 app.UseHttpsRedirection();

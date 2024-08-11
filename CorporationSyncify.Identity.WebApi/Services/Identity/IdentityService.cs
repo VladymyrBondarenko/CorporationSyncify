@@ -45,7 +45,7 @@ namespace CorporationSyncify.Identity.WebApi.Services.Identity
 
                     if (result.Succeeded)
                     {
-                        var identityCreatedEvent = new IdentityCreatedEvent(userName, email);
+                        var identityCreatedEvent = new IdentityCreatedEvent(Guid.NewGuid(), userName, email);
 
                         await _dbContext.OutboxMessages.AddAsync(new OutboxMessage
                         {

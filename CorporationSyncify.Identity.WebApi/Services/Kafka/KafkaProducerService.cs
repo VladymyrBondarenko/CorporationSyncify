@@ -1,6 +1,7 @@
 ﻿using Confluent.Kafka;
 using CorporationSyncify.Identity.WebApi.Events;
 using Newtonsoft.Json;
+using System.Text;
 
 namespace CorporationSyncify.Identity.WebApi.Services.Kafka
 {
@@ -13,7 +14,7 @@ namespace CorporationSyncify.Identity.WebApi.Services.Kafka
             _producerOptions = producerOptions;
         }
 
-        public async Task SendEventAsync(
+        public async Task SendMessageAsync(
             IIdentityEvent identityEvent,
             CancellationToken cancellationToken)
         {
@@ -21,18 +22,24 @@ namespace CorporationSyncify.Identity.WebApi.Services.Kafka
             {
                 BootstrapServers = _producerOptions.BootstrapServers
             };
-            using var producer = new ProducerBuilder<Null, string>(config).Build();
+            using var producer = new ProducerBuilder<string, string>(config).Build();
 
-            var result = await producer.ProduceAsync(
-                identityEvent.EventName,
-                new Message<Null, string>
-                {
-                    Value = JsonConvert.SerializeObject(identityEvent,
-                        new JsonSerializerSettings
-                        {
-                            TypeNameHandling = TypeNameHandling.All
-                        })
-                }, cancellationToken);
+            var kafkaMessage = new KafkaMessage
+            {
+                EventId = identityEvent.EventId,
+                EmittedAt = DateTimeOffset.UtcNow,
+                ContentBlob = Convert.ToBase64String(Encoding.UTF8.GetBytes(
+                    JsonConvert.SerializeObject(identityEvent)))
+            };
+
+            await producer.ProduceAsync(
+                identityEvent.Topic,
+                new Message<string, string> 
+                { 
+                    Key = kafkaMessage.EventId.ToString(),
+                    Value = JsonConvert.SerializeObject(kafkaMessage),
+                    Timestamp = new Timestamp(kafkaMessage.EmittedAt)
+                });
         }
     }
 }

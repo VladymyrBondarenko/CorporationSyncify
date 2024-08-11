@@ -1,12 +1,11 @@
-﻿namespace CorporationSyncify.Identity.WebApi.Events
+﻿
+namespace CorporationSyncify.Identity.WebApi.Events
 {
     public sealed record IdentityCreatedEvent(
+        Guid EventId,
         string UserName,
         string Email) : IIdentityEvent
     {
-        public string EventName 
-        { 
-            get { return nameof(IdentityCreatedEvent); } 
-        }
+        public string Topic => nameof(IdentityCreatedEvent);
     }
 }

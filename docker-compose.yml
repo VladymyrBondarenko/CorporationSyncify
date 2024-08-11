@@ -6,6 +6,7 @@ networks:
 
 volumes:
   identity-service-sqlserver:
+  hr-service-sqlserver:
 
 services:
   
@@ -100,6 +101,8 @@ services:
      - "57401:8081"
      - "57402:8080"
     environment:
+     ConnectionStrings__HrsDbConnection: "Server=hr-service-mssql,1433;Database=HrServiceDb;User Id=sa;Password=c434b940-682f-4547-afd0-cc7c9ecb5f6e;TrustServerCertificate=true;Integrated Security=True;Trusted_Connection = false"
+
      AuthenticationOptions__Authority: "http://identity-service-api:8080"
      AuthenticationOptions__TokenClockSkew: "0"
      AuthenticationOptions__IsSslRequired: "false"
@@ -108,6 +111,26 @@ services:
      AuthenticationOptions__ApiName: "HRS-API"
      AuthenticationOptions__ValidIssuers__0: "http://identity-service-api:8080"
      AuthenticationOptions__ValidIssuers__1: "https://localhost:57397" # this is for when generating token via postman
+
+     KafkaConsumerOptions__BootstrapServers: "kafka-broker-1:29092"
+     KafkaConsumerOptions__GroupId: "hrs-consumer"
+     KafkaConsumerOptions__AutoOffsetReset: "Earliest"
+     KafkaConsumerOptions__Topics: "IdentityCreatedEvent"
+    networks:
+     - corp-syncify-network
+
+  hr-service-mssql:
+    container_name: 'hr-service-mssql'
+    image: 'mcr.microsoft.com/mssql/server:2022-latest'
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: c434b940-682f-4547-afd0-cc7c9ecb5f6e
+    healthcheck:
+     test: "exit 0"
+    ports:
+      - "1434:1433"
+    volumes:
+    - hr-service-sqlserver:/var/lib/mssql/data
     networks:
      - corp-syncify-network
 
@@ -121,7 +144,7 @@ services:
    networks:
     - corp-syncify-network
 
-  kafka-broker:
+  kafka-broker-1:
    image: confluentinc/cp-kafka:7.6.0
    container_name: kafka-broker-1
    ports:
@@ -135,6 +158,9 @@ services:
     KAFKA_ZOOKEEPER_TOPIC_REPLICATION_FACTOR: 1
     KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    KAFKA_MIN_INSYNC_REPLICAS: 1
+    KAFKA_DEFAULT_REPLICATION_FACTOR: 1
     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka-broker-1:29092
     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
    networks:
