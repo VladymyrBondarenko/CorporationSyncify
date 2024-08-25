@@ -1,15 +1,11 @@
 ﻿using Confluent.Kafka;
-using CorporationSyncify.HRS.Domain.Events;
 using CorporationSyncify.HRS.Domain.ExternalEvents;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using System.Net.NetworkInformation;
 using System.Text.Json;
 
 namespace CorporationSyncify.HRS.Infrastructure.Kafka
 {
-    /// <summary>
-    /// </summary>
     public class KafkaConsumerService : IKafkaConsumerService
     {
         private readonly KafkaConsumerOptions _kafkaConsumerOptions;
