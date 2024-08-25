@@ -22,6 +22,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\CorporationSyncify.HRS.Application\CorporationSyncify.HRS.Application.csproj" />
     <ProjectReference Include="..\..\CorporationSyncify.HRS.Infrastructure\CorporationSyncify.HRS.Infrastructure.csproj" />
+    <ProjectReference Include="..\CorporationSyncify.HRS.Application\CorporationSyncify.HRS.Application.csproj" />
+    <ProjectReference Include="..\CorporationSyncify.HRS.Domain\CorporationSyncify.HRS.Domain.csproj" />
+    <ProjectReference Include="..\CorporationSyncify.HRS.Infrastructure\CorporationSyncify.HRS.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.4.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CorporationSyncify.HRS.Domain\CorporationSyncify.HRS.Domain.csproj" />
+    <ProjectReference Include="..\CorporationSyncify.HRS.Infrastructure\CorporationSyncify.HRS.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>
